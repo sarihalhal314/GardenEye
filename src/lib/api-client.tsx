@@ -106,20 +106,6 @@ export interface RouteDetail extends RouteSummary {
   stops: RouteStop[];
 }
 
-export function useConfigureRoverKeepalive(): UseMutationResult<{ ok: boolean }, Error, { timeoutMs: number }> {
-  return useMutation({
-    mutationFn: (data) =>
-      request<{ ok: boolean }>("/api/device/drive/keepalive-config", { method: "POST", body: JSON.stringify(data) }),
-  });
-}
-
-export function useDrive(): UseMutationResult<{ ok: boolean }, Error, { left: number; right: number }> {
-  return useMutation({
-    mutationFn: (data) =>
-      request<{ ok: boolean }>("/api/device/drive", { method: "POST", body: JSON.stringify(data) }),
-  });
-}
-
 export function useListRoutes() {
   return useQuery({
     queryKey: ["routes"],

@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Plus, Trash2, Navigation, ListOrdered, Clock } from "lucide-react";
+import { Plus, Trash2, ListOrdered, Clock } from "lucide-react";
 import { useListRoutes, useCreateRoute, useDeleteRoute } from "@/lib/api-client";
 
 const DAY_ABBREVIATIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -71,6 +71,12 @@ export default function Routes() {
         </CardContent>
       </Card>
 
+      {createRoute.isError && (
+        <p className="text-sm text-destructive">
+          Couldn't create the route: {createRoute.error instanceof Error ? createRoute.error.message : "unknown error"}
+        </p>
+      )}
+
       {isLoading && <p className="text-muted-foreground">Loading routes...</p>}
 
       {routes && routes.length === 0 && (
@@ -93,9 +99,6 @@ export default function Routes() {
             </Button>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => setLocation(`/routes/${route.id}/drive`)}>
-              <Navigation className="w-4 h-4 mr-1" /> Drive & Record
-            </Button>
             <Button variant="outline" size="sm" onClick={() => setLocation(`/routes/${route.id}/edit`)}>
               <ListOrdered className="w-4 h-4 mr-1" /> Edit stops
             </Button>

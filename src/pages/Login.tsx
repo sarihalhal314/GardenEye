@@ -20,7 +20,14 @@ export default function Login() {
       { username, password },
       {
         onSuccess: () => setLocation("/"),
-        onError: () => setError("Wrong username or password."),
+        onError: (err) => {
+          const message = err instanceof Error ? err.message : "";
+          if (message.includes("401")) {
+            setError("Wrong username or password.");
+          } else {
+            setError(`Couldn't reach the server: ${message || "unknown error"}`);
+          }
+        },
       }
     );
   };
