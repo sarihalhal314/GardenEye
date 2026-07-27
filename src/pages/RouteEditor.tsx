@@ -4,23 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, ArrowUp, ArrowDown, MoveRight, ArrowLeft } from "lucide-react";
-import { useGetRoute, useSaveRouteStops, type RouteStop, type RouteStep } from "@/lib/api-client";
-
-const ACTION_LABELS: Record<RouteStep["action"], string> = {
-  forward: "Forward",
-  backward: "Backward",
-  turn_left: "Turn left",
-  turn_right: "Turn right",
-};
-
-function emptyStep(): RouteStep {
-  return { action: "forward", seconds: 2, speed: 0.3 };
-}
+import { Trash2, Plus, ArrowUp, ArrowDown, ArrowLeft, MapPin, Save } from "lucide-react";
+import { useGetRoute, useSaveRouteStops, useGetLiveGpsLocation, type RouteStop } from "@/lib/api-client";
 
 function emptyStop(): RouteStop {
-  return { treeName: "", steps: [emptyStep()] };
+  return { treeName: "", latitude: NaN, longitude: NaN };
 }
 
 export default function RouteEditor() {
@@ -31,6 +19,8 @@ export default function RouteEditor() {
   const saveStops = useSaveRouteStops();
   const [stops, setStops] = useState<RouteStop[]>([]);
   const [saved, setSaved] = useState(false);
+  const [liveTrackingOn, setLiveTrackingOn] = useState(true);
+  const { data: liveGps, isFetching: gpsLoading } = useGetLiveGpsLocation(liveTrackingOn);
 
   useEffect(() => {
     if (route) setStops(route.stops.length ? route.stops : [emptyStop()]);
@@ -40,28 +30,9 @@ export default function RouteEditor() {
     setStops((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
   };
 
-  const updateStep = (stopIdx: number, stepIdx: number, patch: Partial<RouteStep>) => {
-    setStops((prev) =>
-      prev.map((s, idx) =>
-        idx !== stopIdx
-          ? s
-          : { ...s, steps: s.steps.map((st, si) => (si === stepIdx ? { ...st, ...patch } : st)) }
-      )
-    );
-  };
-
-  const addStep = (stopIdx: number) => {
-    setStops((prev) =>
-      prev.map((s, idx) => (idx !== stopIdx ? s : { ...s, steps: [...s.steps, emptyStep()] }))
-    );
-  };
-
-  const removeStep = (stopIdx: number, stepIdx: number) => {
-    setStops((prev) =>
-      prev.map((s, idx) =>
-        idx !== stopIdx ? s : { ...s, steps: s.steps.filter((_, si) => si !== stepIdx) }
-      )
-    );
+  const captureCurrentLocation = (i: number) => {
+    if (!liveGps?.hasFix || liveGps.latitude == null || liveGps.longitude == null) return;
+    updateStop(i, { latitude: liveGps.latitude, longitude: liveGps.longitude });
   };
 
   const addStop = () => setStops((prev) => [...prev, emptyStop()]);
@@ -76,6 +47,10 @@ export default function RouteEditor() {
     });
   };
 
+  const canSave = stops.every(
+    (s) => s.treeName.trim() && Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
+  );
+
   const handleSave = () => {
     setSaved(false);
     saveStops.mutate({ routeId, stops }, { onSuccess: () => setSaved(true) });
@@ -89,12 +64,33 @@ export default function RouteEditor() {
         <Button variant="ghost" size="sm" onClick={() => setLocation("/routes")} className="mb-2 -ml-2">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to routes
         </Button>
-        <h1 className="text-3xl font-serif">Route Editor{route ? `: ${route.name}` : ""}</h1>
+        <h1 className="text-3xl font-serif">Set Locations{route ? `: ${route.name}` : ""}</h1>
         <p className="text-muted-foreground mt-1">
-          Define the trees the car visits, in order, and the movement steps to reach each one
-          from the previous stop.
+          Drive the car to each tree (using the rover's own control page), then click "Use current location" to save that spot.
         </p>
       </div>
+
+      <Card className="bg-muted/40">
+        <CardContent className="pt-6 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-muted-foreground" />
+            {!liveTrackingOn ? (
+              <span className="text-sm text-muted-foreground">Live tracking paused</span>
+            ) : gpsLoading && !liveGps ? (
+              <span className="text-sm text-muted-foreground">Checking GPS...</span>
+            ) : liveGps?.hasFix ? (
+              <span className="text-sm">
+                Car is currently at <strong>{liveGps.latitude?.toFixed(6)}, {liveGps.longitude?.toFixed(6)}</strong>
+              </span>
+            ) : (
+              <span className="text-sm text-destructive">No GPS fix right now</span>
+            )}
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setLiveTrackingOn((v) => !v)}>
+            {liveTrackingOn ? "Pause" : "Resume"} tracking
+          </Button>
+        </CardContent>
+      </Card>
 
       {stops.map((stop, stopIdx) => (
         <Card key={stopIdx}>
@@ -130,49 +126,21 @@ export default function RouteEditor() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <CardDescription>
-              {stopIdx === 0 ? "Steps from the start position:" : `Steps from stop #${stopIdx} to here:`}
-            </CardDescription>
-            {stop.steps.map((step, stepIdx) => (
-              <div key={stepIdx} className="flex items-center gap-2 flex-wrap">
-                <Select
-                  value={step.action}
-                  onValueChange={(v) => updateStep(stopIdx, stepIdx, { action: v as RouteStep["action"] })}
-                >
-                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ACTION_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number" min={0} step={0.1}
-                    value={step.seconds}
-                    onChange={(e) => updateStep(stopIdx, stepIdx, { seconds: parseFloat(e.target.value) || 0 })}
-                    className="w-20"
-                  />
-                  <Label className="text-muted-foreground text-sm">sec</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number" min={0} max={0.5} step={0.05}
-                    value={step.speed}
-                    onChange={(e) => updateStep(stopIdx, stepIdx, { speed: parseFloat(e.target.value) || 0 })}
-                    className="w-20"
-                  />
-                  <Label className="text-muted-foreground text-sm">speed</Label>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => removeStep(stopIdx, stepIdx)}>
-                  <Trash2 className="w-4 h-4 text-muted-foreground" />
-                </Button>
-              </div>
-            ))}
-            <Button variant="outline" size="sm" onClick={() => addStep(stopIdx)}>
-              <Plus className="w-4 h-4 mr-1" /> Add step
+          <CardContent className="flex items-center gap-3 flex-wrap">
+            <Button
+              variant="outline" size="sm"
+              onClick={() => captureCurrentLocation(stopIdx)}
+              disabled={!liveGps?.hasFix}
+            >
+              <MapPin className="w-4 h-4 mr-1" /> Use current location
             </Button>
+            {Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude) ? (
+              <span className="text-sm text-muted-foreground font-mono">
+                {stop.latitude.toFixed(6)}, {stop.longitude.toFixed(6)}
+              </span>
+            ) : (
+              <span className="text-sm text-muted-foreground">No location saved yet</span>
+            )}
           </CardContent>
         </Card>
       ))}
@@ -182,10 +150,11 @@ export default function RouteEditor() {
       </Button>
 
       <div className="flex items-center gap-3 sticky bottom-4 bg-background/95 backdrop-blur p-4 rounded-lg border">
-        <Button onClick={handleSave} disabled={saveStops.isPending}>
-          {saveStops.isPending ? "Saving..." : "Save route"}
+        <Button onClick={handleSave} disabled={!canSave || saveStops.isPending}>
+          <Save className="w-4 h-4 mr-1" /> {saveStops.isPending ? "Saving..." : "Save route"}
         </Button>
-        {saved && <span className="text-sm text-green-600 flex items-center gap-1"><MoveRight className="w-4 h-4" /> Saved — the car will use this next run</span>}
+        {!canSave && <span className="text-sm text-muted-foreground">Every stop needs a name and a saved location</span>}
+        {saved && <span className="text-sm text-green-600">Saved — the car will use these locations next run</span>}
         {saveStops.isError && <span className="text-sm text-destructive">Failed to save. Try again.</span>}
       </div>
     </div>

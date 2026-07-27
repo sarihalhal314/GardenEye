@@ -100,7 +100,7 @@ export default function Routes() {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => setLocation(`/routes/${route.id}/edit`)}>
-              <ListOrdered className="w-4 h-4 mr-1" /> Edit stops
+              <ListOrdered className="w-4 h-4 mr-1" /> Set locations
             </Button>
             <Button variant="outline" size="sm" onClick={() => setLocation(`/routes/${route.id}/schedule`)}>
               <Clock className="w-4 h-4 mr-1" /> Schedule

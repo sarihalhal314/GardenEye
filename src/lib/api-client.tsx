@@ -77,18 +77,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 // --- Routes ---
-export interface RouteStep {
-  action: "forward" | "backward" | "turn_left" | "turn_right";
-  seconds: number;
-  speed: number;
-}
 export interface RouteStop {
   id?: number;
   orderIndex?: number;
   treeName: string;
   markerId?: number | null;
   isReturn?: boolean;
-  steps: RouteStep[];
+  latitude: number;
+  longitude: number;
 }
 export interface ScheduleEntry {
   id?: number;
@@ -104,6 +100,21 @@ export interface RouteSummary {
 }
 export interface RouteDetail extends RouteSummary {
   stops: RouteStop[];
+}
+
+export interface GpsLocation {
+  latitude: number | null;
+  longitude: number | null;
+  hasFix: boolean;
+}
+
+export function useGetLiveGpsLocation(enabled: boolean) {
+  return useQuery({
+    queryKey: ["gps-location"],
+    queryFn: () => request<GpsLocation>("/api/device/gps-location"),
+    refetchInterval: enabled ? 3000 : false,
+    enabled,
+  });
 }
 
 export function useListRoutes() {
