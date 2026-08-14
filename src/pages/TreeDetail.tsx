@@ -17,6 +17,7 @@ import { Link } from "wouter";
 import { formatDateTime, formatDate, formatTime } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useImageWithHeaders } from "@/hooks/useImageWithHeaders";
 
 // Recharts for the history
 import {
@@ -42,6 +43,10 @@ export default function TreeDetail() {
   
   const updateTree = useUpdateTree();
   const deleteTree = useDeleteTree();
+
+  const photoSrc = useImageWithHeaders(
+    tree?.latestReading?.photoUrl ? resolvePhotoUrl(tree.latestReading.photoUrl) : null
+  );
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editName, setEditName] = useState("");
@@ -311,7 +316,7 @@ export default function TreeDetail() {
               {latestReading?.photoUrl ? (
                 <div className="rounded-lg overflow-hidden border border-border bg-black/5 aspect-[4/3] relative">
                   <img 
-                    src={resolvePhotoUrl(latestReading.photoUrl)} 
+                    src={photoSrc ?? undefined} 
                     alt={`Latest photo of ${tree.name}`} 
                     className="w-full h-full object-cover"
                   />
