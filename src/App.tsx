@@ -227,10 +227,12 @@ export default function Drive() {
           )}
         </CardContent>
       </Card>
-
+      {/* RECORDED STOPS REGISTRY BOX */}
       {stops.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-lg">Indexed Paths Registry</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-lg">Indexed Paths Registry</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-2">
             {stops.map((stop, i) => (
               <div key={i} className="flex items-center justify-between border-b border-border py-2 last:border-0">
@@ -245,13 +247,23 @@ export default function Drive() {
                 <Button variant="ghost" size="icon" onClick={() => removeStop(i)}>
                   <Trash2 className="w-4 h-4 text-destructive" />
                 </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* STICKY SAVE FOOTER ACTIONS */}
       <div className="flex items-center gap-3 sticky bottom-4 bg-background/95 backdrop-blur p-4 rounded-lg border">
         <Button onClick={handleSaveRoute} disabled={stops.length === 0 || saveStops.isPending}>
-          <Save className="w-4 h-4 mr-1" /> {saveStops.isPending ? "Compiling Matrix..." : "Save route"}
+          <Save className="w-4 h-4 mr-1" /> {saveStops.isPending ? "Compiling..." : "Save route"}
         </Button>
-        <Button variant="outline" onClick={() => setLocation(`/routes/${routeId}/edit`)}>Review configuration database</Button>
+        <Button variant="outline" onClick={() => setLocation(`/routes/${routeId}/edit`)}>
+          Review spatial configurations
+        </Button>
         {saved && <span className="text-sm text-green-600">Spatial arrays verified and committed!</span>}
       </div>
     </div>
   );
-} // <--- THE FILE MUST END CLEANLY RIGHT HERE. DELETE EVERYTHING BELOW THIS LINE.
+}
+
