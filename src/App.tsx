@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Flag, Save, Trash2, Home } from "lucide-react";
-import { useDrive, useSaveRouteStops, useConfigureRoverKeepalive } from "@/lib/api-client";
+import { useSaveRouteStops } from "@/lib/api-client";
 
 const SPEED = 0.3;
 const ROVER_HEARTBEAT_TIMEOUT_MS = 15000;
@@ -37,9 +37,7 @@ export default function Drive() {
   const { id } = useParams<{ id: string }>();
   const routeId = parseInt(id, 10);
   const [, setLocation] = useLocation();
-  const drive = useDrive();
   const saveStops = useSaveRouteStops();
-  const configureKeepalive = useConfigureRoverKeepalive();
 
   const [stops, setStops] = useState<PreciseRouteStop[]>([]);
   const [currentSteps, setCurrentSteps] = useState<PreciseRouteStep[]>([]);
@@ -48,31 +46,56 @@ export default function Drive() {
   const [markerId, setMarkerId] = useState("");
   const [saved, setSaved] = useState(false);
   const [returnedToStation, setReturnedToStation] = useState(false);
+  const [driveError, setDriveError] = useState<string | null>(null);
 
   const keepaliveInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const sendDriveCommand = async (left: number, right: number) => {
+    try {
+      setDriveError(null);
+      await fetch("/api/drive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ left, right }),
+      });
+    } catch (err) {
+      setDriveError(err instanceof Error ? err.message : "Network failure");
+    }
+  };
+
+  const sendKeepalive = async () => {
+    try {
+      await fetch("/api/keepalive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timeoutMs: ROVER_HEARTBEAT_TIMEOUT_MS }),
+      });
+    } catch (err) {
+      console.warn("Heartbeat connection lost:", err);
+    }
+  };
+
   useEffect(() => {
-    configureKeepalive.mutate({ timeoutMs: ROVER_HEARTBEAT_TIMEOUT_MS });
+    sendKeepalive();
     keepaliveInterval.current = setInterval(
-      () => configureKeepalive.mutate({ timeoutMs: ROVER_HEARTBEAT_TIMEOUT_MS }),
+      () => sendKeepalive(),
       ROVER_HEARTBEAT_TIMEOUT_MS - 5000
     );
     return () => {
       if (keepaliveInterval.current) clearInterval(keepaliveInterval.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startAction = (action: Action) => {
     if (activeAction) return; 
     setActiveAction(action);
-    drive.mutate(DIRECTION_VECTORS[action]);
+    const vector = DIRECTION_VECTORS[action];
+    sendDriveCommand(vector.left, vector.right);
   };
 
   const endAction = async () => {
     if (!activeAction) return;
-    
-    drive.mutate({ left: 0, right: 0 });
+    await sendDriveCommand(0, 0);
     
     try {
       const response = await fetch("/api/drive/stop", { method: "POST" });
@@ -89,9 +112,8 @@ export default function Drive() {
         ]);
       }
     } catch (err) {
-      console.error("Critical error capturing real-time wheel encoder vectors:", err);
+      console.error("Encoder connection drop:", err);
     }
-
     setActiveAction(null);
   };
 
@@ -134,7 +156,7 @@ export default function Drive() {
     <button
       disabled={returnedToStation}
       className={`w-16 h-16 rounded-lg border-2 flex items-center justify-center transition-colors select-none disabled:opacity-40 disabled:cursor-not-allowed ${
-        activeAction === action ? "bg-primary border-primary text-primary-foreground" : "border-border hover:bg-muted"
+        activeAction === action ? "bg-primary border-primary text-primary-foreground" : "border-primary hover:bg-muted"
       } ${className || ""}`}
       onMouseDown={() => startAction(action)}
       onMouseUp={endAction}
@@ -145,8 +167,8 @@ export default function Drive() {
       <Icon className="w-6 h-6" />
     </button>
   );
-
-  return (
+  
+ return (
     <div className="max-w-2xl mx-auto space-y-6 pb-24">
       <div>
         <Button variant="ghost" size="sm" onClick={() => setLocation("/routes")} className="mb-2 -ml-2">
@@ -188,16 +210,15 @@ export default function Drive() {
           </div>
           <p className="text-xs text-muted-foreground mt-2">
             {currentSteps.length > 0
-              ? `${currentSteps.length} pulse matrix segments logged since last stop coordinate lock`
-              : "Drive to map out your initial grid leg tracking paths"}
+              ? `${currentSteps.length} pulse segments logged`
+              : "Drive to map out your tracking paths"}
           </p>
+          {driveError && <p className="text-xs text-destructive mt-1">Connection Error: {driveError}</p>}
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Register Target Stop Vector</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-lg">Register Target Stop Vector</CardTitle></CardHeader>
         <CardContent className="flex items-end gap-3 flex-wrap">
           <div>
             <Label className="mb-1 block text-sm">Tree Row Label</Label>
@@ -205,11 +226,7 @@ export default function Drive() {
           </div>
           <div>
             <Label className="mb-1 block text-sm">Hardware ID Pin</Label>
-            <Input
-              type="number" min={0} max={49}
-              value={markerId} onChange={(e) => setMarkerId(e.target.value)}
-              placeholder="e.g. 3" className="w-28" disabled={returnedToStation}
-            />
+            <Input type="number" min={0} max={49} value={markerId} onChange={(e) => setMarkerId(e.target.value)} placeholder="3" className="w-28" disabled={returnedToStation} />
           </div>
           <Button onClick={addStop} disabled={returnedToStation || !treeName.trim() || currentSteps.length === 0}>
             <Flag className="w-4 h-4 mr-1" /> Add stop
@@ -224,18 +241,16 @@ export default function Drive() {
 
       {stops.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Indexed Paths Registry</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-lg">Indexed Paths Registry</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {stops.map((stop, i) => (
               <div key={i} className="flex items-center justify-between border-b border-border py-2 last:border-0">
                 <div>
                   <span className="font-medium">
-                    {stop.isReturn ? "🏠 Station Return Autopilot Matrix Instantiated" : `#${i + 1} Target Location: ${stop.treeName}`}
+                    {stop.isReturn ? "🏠 Station Return Autopilot Active" : `#${i + 1} Target: ${stop.treeName}`}
                   </span>
                   <span className="text-muted-foreground text-sm ml-2">
-                    ({stop.steps.length} absolute hardware movements cached)
+                    ({stop.steps.length} coordinates registered)
                   </span>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => removeStop(i)}>
@@ -249,7 +264,7 @@ export default function Drive() {
 
       <div className="flex items-center gap-3 sticky bottom-4 bg-background/95 backdrop-blur p-4 rounded-lg border">
         <Button onClick={handleSaveRoute} disabled={stops.length === 0 || saveStops.isPending}>
-          <Save className="w-4 h-4 mr-1" /> {saveStops.isPending ? "Compiling Matrix..." : "Save route"}
+          <Save className="w-4 h-4 mr-1" /> {saveStops.isPending ? "Compiling..." : "Save route"}
         </Button>
         <Button variant="outline" onClick={() => setLocation(`/routes/${routeId}/edit`)}>Review configuration database</Button>
         {saved && <span className="text-sm text-green-600">Spatial arrays verified and committed!</span>}
