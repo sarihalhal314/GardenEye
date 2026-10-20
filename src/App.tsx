@@ -5,14 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Flag, Save, Trash2, Home } from "lucide-react";
-import { useDrive, useSaveRouteStops, useConfigureRoverKeepalive, type RouteStop } from "@/lib/api-client";
+import { useDrive, useSaveRouteStops, useConfigureRoverKeepalive } from "@/lib/api-client";
 
 const SPEED = 0.3;
 const ROVER_HEARTBEAT_TIMEOUT_MS = 15000;
 
 type Action = "forward" | "backward" | "turn_left" | "turn_right";
 
-// 1. Force the layout configuration to track explicit wheel pulses instead of raw seconds
 interface PreciseRouteStep {
   action: Action;
   left_pulses: number;
@@ -61,6 +60,7 @@ export default function Drive() {
     return () => {
       if (keepaliveInterval.current) clearInterval(keepaliveInterval.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startAction = (action: Action) => {
@@ -69,20 +69,15 @@ export default function Drive() {
     drive.mutate(DIRECTION_VECTORS[action]);
   };
 
-  // 2. NEW PRECISION END EVENT: Stop motors immediately and collect backend telemetry
   const endAction = async () => {
     if (!activeAction) return;
     
-    // Stop the vehicle movement loop instantly
     drive.mutate({ left: 0, right: 0 });
     
     try {
-      // Query our updated Flask backend endpoint to grab encoder snapshots
       const response = await fetch("/api/drive/stop", { method: "POST" });
       if (response.ok) {
         const telemetry = await response.json(); 
-        
-        // Log the physical movement into our local step state cache array
         setCurrentSteps((prev) => [
           ...prev,
           {
@@ -132,7 +127,6 @@ export default function Drive() {
 
   const handleSaveRoute = () => {
     setSaved(false);
-    // Explicitly post the exact pulse data maps over to the backend routing API 
     saveStops.mutate({ routeId, stops }, { onSuccess: () => setSaved(true) });
   };
 
@@ -227,7 +221,7 @@ export default function Drive() {
           )}
         </CardContent>
       </Card>
-      {/* RECORDED STOPS REGISTRY BOX */}
+
       {stops.length > 0 && (
         <Card>
           <CardHeader>
@@ -253,17 +247,13 @@ export default function Drive() {
         </Card>
       )}
 
-      {/* STICKY SAVE FOOTER ACTIONS */}
       <div className="flex items-center gap-3 sticky bottom-4 bg-background/95 backdrop-blur p-4 rounded-lg border">
         <Button onClick={handleSaveRoute} disabled={stops.length === 0 || saveStops.isPending}>
-          <Save className="w-4 h-4 mr-1" /> {saveStops.isPending ? "Compiling..." : "Save route"}
+          <Save className="w-4 h-4 mr-1" /> {saveStops.isPending ? "Compiling Matrix..." : "Save route"}
         </Button>
-        <Button variant="outline" onClick={() => setLocation(`/routes/${routeId}/edit`)}>
-          Review spatial configurations
-        </Button>
+        <Button variant="outline" onClick={() => setLocation(`/routes/${routeId}/edit`)}>Review configuration database</Button>
         {saved && <span className="text-sm text-green-600">Spatial arrays verified and committed!</span>}
       </div>
     </div>
   );
 }
-
