@@ -89,6 +89,7 @@ export interface RouteStop {
   treeName: string;
   markerId?: number | null;
   isReturn?: boolean;
+  kind?: "pass" | "inspect";
   steps: RouteStep[];
 }
 export interface ScheduleEntry {
@@ -153,6 +154,29 @@ export function useSaveRouteStops(): UseMutationResult<RouteDetail, Error, { rou
   return useMutation({
     mutationFn: ({ routeId, stops }) =>
       request<RouteDetail>(`/api/routes/${routeId}/stops`, { method: "PUT", body: JSON.stringify({ stops }) }),
+  });
+}
+
+export function useSaveRouteMarkers(): UseMutationResult<
+  RouteDetail,
+  Error,
+  { routeId: number; markers: { markerId: number; kind: "pass" | "inspect"; treeName: string }[] }
+> {
+  return useMutation({
+    mutationFn: ({ routeId, markers }) =>
+      request<RouteDetail>(`/api/routes/${routeId}/markers`, { method: "PUT", body: JSON.stringify({ markers }) }),
+  });
+}
+
+export function useRunRoute(): UseMutationResult<{ ok: boolean }, Error, { routeId: number }> {
+  return useMutation({
+    mutationFn: ({ routeId }) => request<{ ok: boolean }>(`/api/routes/${routeId}/run`, { method: "POST" }),
+  });
+}
+
+export function useStopRoute(): UseMutationResult<{ ok: boolean }, Error, void> {
+  return useMutation({
+    mutationFn: () => request<{ ok: boolean }>("/api/routes/stop", { method: "POST" }),
   });
 }
 

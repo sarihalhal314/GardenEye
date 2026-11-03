@@ -93,6 +93,9 @@ export default function Routes() {
             </Button>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => setLocation(`/routes/${route.id}/markers`)}>
+              <ListOrdered className="w-4 h-4 mr-1" /> Marker route
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setLocation(`/routes/${route.id}/drive`)}>
               <Navigation className="w-4 h-4 mr-1" /> Drive & Record
             </Button>

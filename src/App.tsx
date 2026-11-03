@@ -8,6 +8,7 @@ import Login from '@/pages/Login';
 import Routes from '@/pages/Routes';
 import RouteEditor from '@/pages/RouteEditor';
 import Drive from '@/pages/Drive';
+import MarkerRoute from '@/pages/MarkerRoute';
 import Schedule from '@/pages/Schedule';
 import { Shell } from '@/components/layout/shell';
 import { ProtectedRoute } from '@/components/protected-route';
@@ -26,6 +27,7 @@ function Router() {
               <Route path="/" component={Overview} />
               <Route path="/routes" component={Routes} />
               <Route path="/routes/:id/edit" component={RouteEditor} />
+              <Route path="/routes/:id/markers" component={MarkerRoute} />
               <Route path="/routes/:id/drive" component={Drive} />
               <Route path="/routes/:id/schedule" component={Schedule} />
               <Route path="/trees/:id" component={TreeDetail} />
